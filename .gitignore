@@ -1,3 +1,14 @@
+rm -rf .venv && python3 -m venv .venv || python -m venv .venv && source .venv/bin/activate && export PIP_CONFIG_FILE=/dev/null && export PYTHONNOUSERSITE=1 && ./.venv/bin/python -m pip install --upgrade pip && ./.venv/bin/pip install -r requirements.txt
+cat <<'EOF' > .replit && echo "File .replit created"
+git remote set-url origin https://github.com/Chat5-lab/finora-backend-clean.git 2>/dev/null || git remote add origin https://github.com/Chat5-lab/finora-backend-clean.git && git add . && git commit -m "Flatten repo; clean ignores; set .replit run command" && git branch -M main && git push -u origin main
+./.venv/bin/python -c "import fastapi, uvicorn; print('FastAPI/uvicorn OK')"
+(echo "== Remotes ==" && git remote -v; echo; echo "== Branches ==" && git branch -vv; echo; echo "== Recent commits ==" && git --no-pager log --oneline --graph --decorate --max-count=12; echo; echo "== Key files present? ==" && ls -1 main.py requirements.txt pyproject.toml README.md routers static templates 2>/dev/null | sed 's/^/ - /'; echo; echo "== Tracked files count ==" && git ls-files | wc -l; git remote remove old 2>/dev/null || true; git remote add old https://github.com/Chat5-lab/finora-backend.git; git fetch old; echo; echo "== Old repo HEAD on main =="; git show --quiet --oneline old/main || echo "No 'old/main' branch found"; echo; echo "== Diff (old/main -> your main) =="; git diff --stat old/main..main || true)
+rm -rf finora-backend finora-backend.git replit.toml && printf "%s\n" "venv/" ".venv/" "__pycache__/" "*.pyc" ".DS_Store" ".replit" ".config" ".cache" > .gitignore && git rm -r --cached venv .venv __pycache__ .mypy_cache .pytest_cache .idea .vscode .replit .config .cache 2>/dev/null || true && find . -name "*.pyc" -print0 | xargs -0 git rm --cached 2>/dev/null || true
+cat > .replit <<'EOF'
+run = "sh -lc 'python3 -m venv .venv; export PIP_CONFIG_FILE=/dev/null PIP_INDEX_URL=https://pypi.org/simple PYTHONNOUSERSITE=1; ./.venv/bin/pip install -r requirements.txt; ./.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --reload'"
+[[ports]]
+localPort = 8000
+externalPort = 80
 venv/
 .venv/
 __pycache__/
@@ -6,4 +17,3 @@ __pycache__/
 .replit
 .config
 .cache
-
