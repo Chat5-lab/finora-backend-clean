@@ -19,3 +19,4 @@ def health():
     return {"status": "ok"}
 
 app.include_router(accountant_router)
+

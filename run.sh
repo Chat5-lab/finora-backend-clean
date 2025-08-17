@@ -26,3 +26,4 @@ export PIP_CONFIG_FILE=/dev/null PYTHONNOUSERSITE=1
 export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 export GIT_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 exec ./.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --reload
+
