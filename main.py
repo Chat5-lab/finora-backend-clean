@@ -7,7 +7,11 @@ app = FastAPI(
     description="Effortless accounting, payroll, and insights — UK first, global ready",
     version="0.1.0",
 )
+from fastapi.responses import RedirectResponse
 
+@app.get("/", include_in_schema=False)
+def index():
+    return RedirectResponse("/docs")
 Base.metadata.create_all(bind=engine)
 
 @app.get("/health")
