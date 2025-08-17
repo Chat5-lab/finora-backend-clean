@@ -8,3 +8,4 @@ __pycache__/
 .upm/
 finora.db
 *.bak
+.env
