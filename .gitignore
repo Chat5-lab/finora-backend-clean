@@ -9,3 +9,8 @@ __pycache__/
 finora.db
 *.bak
 .env
+
+# never commit keys
+id_rsa
+*.pem
+*.key
