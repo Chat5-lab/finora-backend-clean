@@ -15,4 +15,3 @@ id_rsa
 *.pem
 *.key
 
-.github/workflows/
