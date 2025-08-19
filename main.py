@@ -1,3 +1,4 @@
+from routers.auth import router as auth_router
 import os
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -5,6 +6,7 @@ from database import Base, engine
 import models  # ensure models are imported so create_all sees them
 from routers.accountant import router as accountant_router
 
+from fastapi import FastAPI
 app = FastAPI(
     title="Finora API",
     description="Effortless accounting, payroll, and insights — UK first, global ready",
@@ -30,3 +32,4 @@ Base.metadata.create_all(bind=engine)
 
 # Feature routers
 app.include_router(accountant_router)
+app.include_router(auth_router)

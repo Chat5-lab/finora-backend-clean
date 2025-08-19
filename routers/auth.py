@@ -1,85 +1,61 @@
-from datetime import datetime, timedelta
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import jwt, JWTError
-from passlib.context import CryptContext
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from database import get_db
-from settings import settings
 from models import User
-from schemas_auth import UserCreate, UserRead, Token
+from auth_utils import get_password_hash, verify_password, create_access_token, create_refresh_token, TokenPair, decode_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+class RegisterIn(BaseModel):
+    email: EmailStr
+    password: str
 
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+class UserOut(BaseModel):
+    id: int
+    email: EmailStr
+    class Config:
+        from_attributes = True
 
-def create_access_token(data: dict, expires_minutes: int = settings.ACCESS_TOKEN_EXPIRE_MINUTES) -> str:
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
-    return db.query(User).filter(User.email == email).first()
-
-def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
-    user = get_user_by_email(db, email)
-    if not user or not verify_password(password, user.hashed_password):
-        return None
-    return user
-
-async def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
-    cred_exc = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise cred_exc
-    except JWTError:
-        raise cred_exc
-    user = get_user_by_email(db, email=email)
-    if user is None or not user.is_active:
-        raise cred_exc
+        payload = decode_token(token)
+        sub = payload.get("sub")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    if not sub:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+
+    user = db.query(User).filter(User.email == sub).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
 
-@router.post("/register", response_model=UserRead, status_code=201)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
-    existing = get_user_by_email(db, payload.email)
-    if existing:
+@router.post("/register", response_model=UserOut, status_code=201)
+def register(body: RegisterIn, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(
-        email=payload.email,
-        hashed_password=get_password_hash(payload.password),
-        full_name=payload.full_name or "",
-        is_active=True,
-    )
+    user = User(email=body.email, hashed_password=get_password_hash(body.password))
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
 
-@router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
-    token = create_access_token({"sub": user.email})
-    return {"access_token": token, "token_type": "bearer"}
+@router.post("/login", response_model=TokenPair)
+def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == form.username).first()
+    if not user or not verify_password(form.password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Invalid credentials")
+    return TokenPair(
+        access_token=create_access_token(user.email),
+        refresh_token=create_refresh_token(user.email),
+    )
 
-@router.get("/me", response_model=UserRead)
-def me(current_user: User = Depends(get_current_user)):
-    return current_user
+@router.get("/me", response_model=UserOut)
+def me(current: User = Depends(get_current_user)):
+    return current
