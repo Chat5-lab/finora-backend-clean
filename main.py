@@ -1,12 +1,18 @@
-from routers.auth import router as auth_router
+from routers.ledger import router as ledger_router
 import os
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
-from database import Base, engine
-import models  # ensure models are imported so create_all sees them
+
+from routers.auth import router as auth_router
+from routers.orgs import router as orgs_router
 from routers.accountant import router as accountant_router
 
-from fastapi import FastAPI
+# Optional: active-org endpoints (only if file exists)
+try:
+    from routers.users import router as users_router
+except Exception:
+    users_router = None  # fine if it's not there yet
+
 app = FastAPI(
     title="Finora API",
     description="Effortless accounting, payroll, and insights — UK first, global ready",
@@ -27,9 +33,10 @@ def health():
         "commit": os.getenv("GIT_COMMIT", "unknown"),
     }
 
-# Create tables if missing (dev/SQLite)
-Base.metadata.create_all(bind=engine)
-
-# Feature routers
+# Routers
 app.include_router(accountant_router)
 app.include_router(auth_router)
+app.include_router(orgs_router)
+if users_router:
+    app.include_router(users_router)
+app.include_router(ledger_router)
