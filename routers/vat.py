@@ -19,23 +19,26 @@ class VatPreviewResp(BaseModel):
     boxes: Dict[str, float]
 
 @router.post("/preview", response_model=VatPreviewResp)
-def vat_preview(body: VatPreviewReq, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    # Resolve org: explicit or user's active org (from user_settings)
+def vat_preview(
+    body: VatPreviewReq,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Resolve org: explicit or user's active org
     org_id = body.organization_id
     if org_id is None:
-        active = db.execute(
+        row = db.execute(
             "SELECT active_org_id FROM user_settings WHERE user_id = :u",
-            {"u": user.id}
+            {"u": user.id},
         ).fetchone()
-        if not active or not active[0]:
+        if not row or not row[0]:
             raise HTTPException(400, "No active organization for user and none provided.")
-        org_id = int(active[0])
+        org_id = int(row[0])
 
     org = db.get(Organization, org_id)
     if not org:
         raise HTTPException(404, "Organization not found.")
 
-    # TODO: compute from journals/lines and tax rates.
-    # For now, return valid shape with zeros so UI and tests can proceed.
+    # Placeholder: return Boxes 1–9 as zero; real calc comes next
     boxes = {f"box{i}": 0.0 for i in range(1, 10)}
     return VatPreviewResp(boxes=boxes)

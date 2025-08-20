@@ -40,3 +40,5 @@ app.include_router(orgs_router)
 if users_router:
     app.include_router(users_router)
 app.include_router(ledger_router)
+from routers.vat import router as vat_router
+app.include_router(vat_router)
