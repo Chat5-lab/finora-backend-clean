@@ -36,3 +36,20 @@ try:
     print("Seeded: Café Demo / owner@example.com : demo123")
 finally:
     db.close()
+
+# --- Seed minimal UK VAT rates if missing ---
+from sqlalchemy import select
+from models import TaxRate
+
+existing_codes = {row[0] for row in db.execute(select(TaxRate.code)).all()}
+seed_rates = [
+    ("STD20", "UK Standard 20%", 20.00, "both"),
+    ("RED5",  "UK Reduced 5%",    5.00, "both"),
+    ("ZERO",  "Zero-rated 0%",    0.00, "both"),
+    ("EXEMPT","Exempt",           0.00, "both"),
+]
+for code, name, rate, kind in seed_rates:
+    if code not in existing_codes:
+        db.add(TaxRate(code=code, name=name, rate=rate, kind=kind))
+db.commit()
+print("Seeded UK VAT rates (if missing).")
