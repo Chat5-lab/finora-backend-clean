@@ -3,6 +3,7 @@ from typing import Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlalchemy import text  # <-- needed for raw SQL
 
 from database import get_db
 from models import User, Organization
@@ -28,9 +29,9 @@ def vat_preview(
     org_id = body.organization_id
     if org_id is None:
         row = db.execute(
-            "SELECT active_org_id FROM user_settings WHERE user_id = :u",
+            text("SELECT active_org_id FROM user_settings WHERE user_id = :u"),
             {"u": user.id},
-        ).fetchone()
+        ).first()
         if not row or not row[0]:
             raise HTTPException(400, "No active organization for user and none provided.")
         org_id = int(row[0])
