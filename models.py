@@ -56,3 +56,34 @@ class Membership(Base):
     user = relationship("User", back_populates="memberships")
     organization = relationship("Organization", back_populates="members")
     __table_args__ = (UniqueConstraint("user_id", "org_id", name="uq_user_org"),)
+# --- Ledger models ---
+from sqlalchemy import Column, Integer, String, ForeignKey, Date, Numeric, CheckConstraint, UniqueConstraint
+from sqlalchemy.orm import relationship
+
+class Account(Base):
+    __tablename__ = "accounts"
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    code = Column(String(20), nullable=False)
+    name = Column(String(100), nullable=False)
+    type = Column(String(20), nullable=False)  # asset/liability/equity/income/expense
+    __table_args__ = (UniqueConstraint('organization_id', 'code', name='uq_account_org_code'),)
+    organization = relationship("Organization", backref="accounts")
+
+class JournalEntry(Base):
+    __tablename__ = "journal_entries"
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    date = Column(Date, nullable=False)
+    memo = Column(String(255), nullable=True)
+    lines = relationship("JournalLine", cascade="all, delete-orphan", backref="journal")
+
+class JournalLine(Base):
+    __tablename__ = "journal_lines"
+    id = Column(Integer, primary_key=True)
+    journal_entry_id = Column(Integer, ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False)
+    account_id = Column(Integer, ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
+    debit = Column(Numeric(12,2), nullable=False, default=0)
+    credit = Column(Numeric(12,2), nullable=False, default=0)
+    __table_args__ = (CheckConstraint('NOT (debit > 0 AND credit > 0)', name='ck_line_not_both'),)
+    account = relationship("Account")
