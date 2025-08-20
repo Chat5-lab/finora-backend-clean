@@ -87,3 +87,47 @@ class JournalLine(Base):
     credit = Column(Numeric(12,2), nullable=False, default=0)
     __table_args__ = (CheckConstraint('NOT (debit > 0 AND credit > 0)', name='ck_line_not_both'),)
     account = relationship("Account")
+
+from sqlalchemy import Column, Integer, ForeignKey
+from sqlalchemy.orm import relationship
+from database import Base  # already present earlier in the file
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    active_org_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+
+    user = relationship("User", backref="settings", uselist=False)
+    active_org = relationship("Organization")
+
+# --- VAT models (minimal scaffold) ---
+from sqlalchemy import Column, Integer, String, Numeric, ForeignKey, Date
+from sqlalchemy.orm import relationship
+
+class VatScheme(Base):
+    __tablename__ = "vat_schemes"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    # optional org scoping
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    organization = relationship("Organization")
+
+class TaxRate(Base):
+    __tablename__ = "tax_rates"
+    id = Column(Integer, primary_key=True)
+    code = Column(String, nullable=False, unique=True)  # e.g., "STD20", "RED5", "ZERO", "EXEMPT"
+    name = Column(String, nullable=False)               # human friendly name
+    rate = Column(Numeric(5,2), nullable=False)         # percentage e.g., 20.00
+    kind = Column(String, nullable=False, default="sale")  # sale|purchase|both
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    organization = relationship("Organization")
+
+class VatPeriod(Base):
+    __tablename__ = "vat_periods"
+    id = Column(Integer, primary_key=True)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    due_date = Column(Date, nullable=True)
+    status = Column(String, nullable=False, default="open")  # open|submitted|paid
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    organization = relationship("Organization")
