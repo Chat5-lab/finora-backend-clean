@@ -131,3 +131,111 @@ class VatPeriod(Base):
     status = Column(String, nullable=False, default="open")  # open|submitted|paid
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     organization = relationship("Organization")
+# --- Bank feed models (stub) ---
+from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Numeric, JSON, UniqueConstraint
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
+class BankConnection(Base):
+    __tablename__ = "bank_connections"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    provider = Column(String, nullable=False)  # e.g., "sandbox"
+    access_token = Column(String, nullable=False)  # stubbed token
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user = relationship("User", backref="bank_connections")
+    accounts = relationship("BankAccount", back_populates="connection", cascade="all, delete-orphan")
+
+
+class BankAccount(Base):
+    __tablename__ = "bank_accounts"
+    id = Column(Integer, primary_key=True)
+    connection_id = Column(Integer, ForeignKey("bank_connections.id", ondelete="CASCADE"), nullable=False)
+    provider_account_id = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    currency = Column(String, default="GBP", nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    connection = relationship("BankConnection", back_populates="accounts")
+    transactions = relationship("BankTransaction", back_populates="account", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint('connection_id', 'provider_account_id', name='uq_bank_account_provider'),
+    )
+
+
+class BankTransaction(Base):
+    __tablename__ = "bank_transactions"
+    id = Column(Integer, primary_key=True)
+    account_id = Column(Integer, ForeignKey("bank_accounts.id", ondelete="CASCADE"), nullable=False)
+    provider_txn_id = Column(String, nullable=False)
+    date = Column(Date, nullable=False)
+    description = Column(String, nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)  # positive=credit, negative=debit (convention)
+    currency = Column(String, default="GBP", nullable=False)
+    raw = Column(JSON, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    account = relationship("BankAccount", back_populates="transactions")
+
+    __table_args__ = (
+        UniqueConstraint('account_id', 'provider_txn_id', name='uq_bank_txn_provider'),
+    )
+
+# --- Invoicing models (MVP) ---
+
+from sqlalchemy import Numeric, ForeignKey, Date
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy import String
+from decimal import Decimal
+
+class Customer(Base):
+    __tablename__ = "customers"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    organization = relationship("Organization")
+
+class Invoice(Base):
+    __tablename__ = "invoices"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    issue_date: Mapped[Date] = mapped_column(Date)
+    due_date: Mapped[Date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(30), default="draft")  # draft/sent/paid/overdue
+    currency: Mapped[str] = mapped_column(String(3), default="GBP")
+    net_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
+    tax_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
+    gross_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
+
+    organization = relationship("Organization")
+    customer = relationship("Customer")
+    lines = relationship("InvoiceLine", back_populates="invoice", cascade="all, delete-orphan")
+
+class InvoiceLine(Base):
+    __tablename__ = "invoice_lines"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"), index=True)
+    description: Mapped[str] = mapped_column(String(255))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(10, 3))
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0.00"))  # e.g., 20.00 for 20%
+
+    invoice = relationship("Invoice", back_populates="lines")
+
+class Payment(Base):
+    __tablename__ = "payments"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"), index=True)
+    date: Mapped[Date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    method: Mapped[str] = mapped_column(String(30), default="manual")  # manual/stripe/etc.
+    reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    invoice = relationship("Invoice")

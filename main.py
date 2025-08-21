@@ -42,3 +42,9 @@ if users_router:
 app.include_router(ledger_router)
 from routers.vat import router as vat_router
 app.include_router(vat_router)
+from routers.bank import router as bank_router
+app.include_router(bank_router)
+from routers.payment import router as payment_router
+app.include_router(payment_router)
+from routers.invoices import router as invoices_router
+app.include_router(invoices_router)

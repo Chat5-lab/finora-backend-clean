@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
-from auth_utils import get_password_hash, verify_password, create_access_token, create_refresh_token, TokenPair, decode_token
+from auth_utils import (
+    get_password_hash, verify_password,
+    create_access_token, create_refresh_token, TokenPair, decode_token
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -27,10 +30,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         sub = payload.get("sub")
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
     if not sub:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
-
     user = db.query(User).filter(User.email == sub).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
@@ -54,6 +55,24 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
     return TokenPair(
         access_token=create_access_token(user.email),
         refresh_token=create_refresh_token(user.email),
+    )
+
+class RefreshIn(BaseModel):
+    refresh_token: str
+
+@router.post("/refresh", response_model=TokenPair)
+def refresh(body: RefreshIn):
+    # Validate refresh token; if OK, mint a new pair
+    try:
+        payload = decode_token(body.refresh_token)
+        sub = payload.get("sub")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Invalid refresh token payload")
+    return TokenPair(
+        access_token=create_access_token(sub),
+        refresh_token=create_refresh_token(sub),
     )
 
 @router.get("/me", response_model=UserOut)

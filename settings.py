@@ -1,13 +1,13 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./finora.db"
     SECRET_KEY: str = "dev-secret"
     ENV: str = "dev"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ACCESS_TOKEN_EXPIRE_MIN: int = 30
+    REFRESH_TOKEN_EXPIRE_MIN: int = 43200
 
-    class Config:
-        env_file = ".env"
+    # Pydantic v2 style config (replaces inner Config class)
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

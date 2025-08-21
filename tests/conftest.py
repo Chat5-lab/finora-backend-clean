@@ -110,9 +110,17 @@ def seed_data(engine):
     elif hasattr(Account, "org_id"): key = "org_id"
     elif hasattr(Account, "business_id"): key = "business_id"
     else: key = None
-    for code, name, typ in [("1000","Cash","asset"), ("5000","Expenses","expense")]:
-        base = { "code": code, "name": name, "type": typ }
-        if key: base[key] = org.id
+    
+    chart = [
+        ("1000", "Cash", "asset"),
+        ("1100", "Accounts Receivable", "asset"),  # <- A/R
+        ("4000", "Sales", "income"),               # <- Sales (revenue)
+        ("5000", "Expenses", "expense"),
+    ]
+    for code, name, typ in chart:
+        base = {"code": code, "name": name, "type": typ}
+        if key:
+            base[key] = org.id
         add_account(**base)
 
     db.commit()
