@@ -29,3 +29,9 @@ class InviteOut(BaseModel):
 
 class AcceptInviteIn(BaseModel):
     token: str
+
+# --- generic response model used by several routers ---
+from pydantic import BaseModel
+
+class Message(BaseModel):
+    detail: str
