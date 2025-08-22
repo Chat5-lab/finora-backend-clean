@@ -9,12 +9,7 @@ if [ -x ./.venv/bin/python ]; then
   # Build metadata for /health
   export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   export GIT_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
-  
-  # Kill any existing processes on port 5000
-  pkill -f "uvicorn.*main:app" || true
-  sleep 1
-  
-  exec ./.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port "${PORT:-5000}" --reload
+  exec ./.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --reload
 fi
 
 # Otherwise create venv with whichever python is available
@@ -30,9 +25,4 @@ export PIP_CONFIG_FILE=/dev/null PYTHONNOUSERSITE=1
 # Build metadata for /health
 export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 export GIT_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
-
-# Kill any existing processes on port 5000
-pkill -f "uvicorn.*main:app" || true
-sleep 1
-
-exec ./.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port "${PORT:-5000}" --reload
+exec ./.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --reload
