@@ -126,14 +126,14 @@ def mark_paid(
 
     # Post to ledger (import inside function to avoid circulars)
     try:
-        from routers.ledger import post_journal
+        from services.posting import post_journal
         lines = [
             {"account_code": "1000", "debit": str(payload.amount)},
             {"account_code": "1100", "credit": str(payload.amount)},
         ]
         post_journal(
-            {"date": str(payload.date), "memo": f"Payment for invoice {invoice_id}", "lines": lines},
-            db=db, user=user, org_id=org_id,  # type: ignore
+            db, organization_id=org_id, when=payload.date, 
+            memo=f"Payment for invoice {invoice_id}", lines=lines
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Ledger post failed: {e}")

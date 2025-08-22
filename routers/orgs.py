@@ -2,7 +2,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi import HTTPException, status
 from fastapi import Depends
-from sqlalchemy.orm import Session
+from database import get_db
+from routers.auth import get_current_user
 
 def get_active_org_id(db: Session = Depends(get_db), user=Depends(get_current_user)) -> int:
     """
@@ -15,7 +16,7 @@ def get_active_org_id(db: Session = Depends(get_db), user=Depends(get_current_us
     # 1) Try user_settings table (tests create/seed this)
     row = db.execute(
         text("SELECT active_org_id FROM user_settings WHERE user_id = :uid"),
-        {"uid": user_id},
+        {"uid": user.id},
     ).first()
     if row and row[0]:
         return int(row[0])
@@ -25,7 +26,7 @@ def get_active_org_id(db: Session = Depends(get_db), user=Depends(get_current_us
 
     mem = (
         db.query(Membership)
-        .filter(Membership.user_id == user_id)
+        .filter(Membership.user_id == user.id)
         .order_by(Membership.id.asc())
         .first()
     )
