@@ -8,3 +8,19 @@ externalPort = 80
 [nix]
 packages = ["gdb", "libxcrypt", "openssh"]
 
+[workflows]
+runButton = "Start Finora API"
+
+[[workflows.workflow]]
+name = "Start Finora API"
+author = 45897997
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "alembic upgrade head"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python -m uvicorn main:app --host 0.0.0.0 --port 5000 --reload"
+
