@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Depends, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas import AccountantCreate, AccountantOut, InviteOut, AcceptInviteIn

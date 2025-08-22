@@ -1,7 +1,7 @@
 from decimal import Decimal
 from datetime import date
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Depends, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import select, Table, Column, Integer, MetaData
@@ -45,7 +45,7 @@ class JournalOut(BaseModel):
     class Config:
         from_attributes = True
 
-def _active_org_id(db: Session, user_id: int):
+def _active_org_id(user_id: int, db: Session = Depends(get_db)):
     row = db.execute(select(user_settings.c.active_org_id).where(user_settings.c.user_id==user_id)).first()
     if row and row[0]:
         return int(row[0])
@@ -53,7 +53,7 @@ def _active_org_id(db: Session, user_id: int):
 
 @router.get("/accounts", response_model=list[AccountOut])
 def list_accounts(current: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    org_id = _active_org_id(db, current.id)
+    org_id = _active_org_id(current.id, db)
     if not org_id:
         return []
     rows = db.execute(select(Account).where(Account.organization_id==org_id).order_by(Account.code)).scalars().all()
@@ -61,7 +61,7 @@ def list_accounts(current: User = Depends(get_current_user), db: Session = Depen
 
 @router.post("/journals", response_model=JournalOut, status_code=201)
 def create_journal(payload: JournalIn, current: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    org_id = _active_org_id(db, current.id)
+    org_id = _active_org_id(current.id, db)
     if not org_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No organization available")
     try:

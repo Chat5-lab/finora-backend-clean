@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Optional, Dict
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Depends, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import text  # <-- needed for raw SQL

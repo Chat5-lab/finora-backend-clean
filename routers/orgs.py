@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi import HTTPException, status
+from fastapi import Depends
+from sqlalchemy.orm import Session
 
-def get_active_org_id(db: Session, user_id: int) -> int:
+def get_active_org_id(db: Session = Depends(get_db), user=Depends(get_current_user)) -> int:
     """
     Resolve the user's active organization id.
 

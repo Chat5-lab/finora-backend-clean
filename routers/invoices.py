@@ -1,22 +1,21 @@
-# routers/invoices.py
 from decimal import Decimal
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List
+
+from fastapi import APIRouter, Depends, Depends, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Customer, Invoice, InvoiceLine, Payment
-from routers.auth import get_current_user  # your existing auth dep
-from routers.orgs import get_active_org_id  # we already use this in other routers
-from schemas import Message  # or define a small Pydantic response if you prefer
+from routers.auth import get_current_user
+from routers.orgs import get_active_org_id
+
+from pydantic import BaseModel, condecimal
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
-# --- Schemas (inline for brevity) ---
-from pydantic import BaseModel, condecimal
-from typing import List
-
+# --- Schemas ---
 class InvoiceLineIn(BaseModel):
     description: str
     quantity: condecimal(max_digits=10, decimal_places=3)
@@ -37,10 +36,11 @@ class InvoiceOut(BaseModel):
     net_total: condecimal(max_digits=12, decimal_places=2)
     tax_total: condecimal(max_digits=12, decimal_places=2)
     gross_total: condecimal(max_digits=12, decimal_places=2)
-    class Config:
-        from_attributes = True
 
-def _sum_totals(lines: list[InvoiceLineIn]) -> tuple[Decimal, Decimal, Decimal]:
+    class Config:
+        from_attributes = True  # Pydantic v2: OK (or use model_config=ConfigDict(...))
+
+def _sum_totals(lines: List[InvoiceLineIn]) -> tuple[Decimal, Decimal, Decimal]:
     net = Decimal("0.00")
     tax = Decimal("0.00")
     for l in lines:
@@ -97,18 +97,6 @@ def create_invoice(
     db.refresh(inv)
     return inv
 
-@router.get("/{invoice_id}", response_model=InvoiceOut)
-def get_invoice(
-    invoice_id: int,
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user),
-    org_id: int = Depends(get_active_org_id),
-):
-    inv = db.get(Invoice, invoice_id)
-    if not inv or inv.organization_id != org_id:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    return inv
-
 class MarkPaidIn(BaseModel):
     date: date
     amount: condecimal(max_digits=12, decimal_places=2)
@@ -136,22 +124,16 @@ def mark_paid(
     )
     db.add(pay)
 
-    # post ledger: Dr 1000 (Bank), Cr 1100 (A/R)
-    from routers.ledger import post_journal  # reuse your posting service if exposed
-    lines = [
-        {"account_code": "1000", "debit": str(payload.amount)},
-        {"account_code": "1100", "credit": str(payload.amount)},
-    ]
-    # simple inline call; if your post helper is internal, replicate the journal insert here
-    # We’ll call the journal API via DB helper to avoid HTTP round trip:
-    # (You already have a service for posting; if not, add a small helper in routers/ledger.py)
-    # For now we’ll call the endpoint-style function:
+    # Post to ledger (import inside function to avoid circulars)
     try:
+        from routers.ledger import post_journal
+        lines = [
+            {"account_code": "1000", "debit": str(payload.amount)},
+            {"account_code": "1100", "credit": str(payload.amount)},
+        ]
         post_journal(
             {"date": str(payload.date), "memo": f"Payment for invoice {invoice_id}", "lines": lines},
-            db=db,  # type: ignore
-            user=user,  # type: ignore
-            org_id=org_id,  # type: ignore
+            db=db, user=user, org_id=org_id,  # type: ignore
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Ledger post failed: {e}")
